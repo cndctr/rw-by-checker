@@ -90,8 +90,10 @@ def parse_trains(html, filter_type=None, filter_selling=None):
 
 def list_train_types(html):
     soup = BeautifulSoup(html, "html.parser")
-    types = set(row.get("data-train-type") for row in soup.select(".sch-table__row"))
+    types = {row.get("data-train-type") for row in soup.select(".sch-table__row")}
+    types = {t for t in types if t}  # drop None
     return sorted(types)
+
 
 def train_icon(train_type: str) -> str:
     icons = {
