@@ -31,14 +31,14 @@ def build_url(from_city, to_city, date, codes):
         f"&date={date.strftime('%Y-%m-%d')}"
     )
 
-def parse_trains(html, filter_type=None, filter_selling=None):
+def parse_trains(html, filter_types=None, filter_selling=None):
     soup = BeautifulSoup(html, "html.parser")
     trains = []
     for row in soup.select(".sch-table__row"):
         train_type = row.get("data-train-type")
         selling = row.get("data-ticket_selling_allowed")
 
-        if filter_type and train_type != filter_type:
+        if filter_types and train_type not in filter_types:
             continue
         if filter_selling is not None and selling != filter_selling:
             continue
@@ -55,15 +55,12 @@ def parse_trains(html, filter_type=None, filter_selling=None):
             t_name = t_name if t_name else "Неизвестный тип"
             qty = t.select_one("a span").text.strip()
 
-            # Collect all costs in this ticket type
+            # Collect all costs
             costs = [c.text.strip() for c in t.select(".ticket-cost")]
             currencies = [c.text.strip() for c in t.select(".ticket-currency")]
-
-            # Join multiple prices with "/"
             if costs:
                 price_str = "/".join(costs)
                 if currencies:
-                    # take unique currencies and join
                     uniq_cur = "/".join(sorted(set(currencies)))
                     price_str = f"{price_str} {uniq_cur}"
             else:
@@ -74,7 +71,6 @@ def parse_trains(html, filter_type=None, filter_selling=None):
                 "seats": qty,
                 "price": price_str
             })
-
 
         trains.append({
             "number": number,
@@ -160,7 +156,7 @@ def main():
     parser.add_argument("--from", dest="from_city", required=True, help="From city alias (see cities.csv)")
     parser.add_argument("--to", dest="to_city", required=True, help="To city alias (see cities.csv)")
     parser.add_argument("--date", required=True, help="Travel date in YYYY-MM-DD")
-    parser.add_argument("--type", dest="train_type", help="Filter by train type (e.g. international, interregional_economy)")
+    parser.add_argument("--types", dest="train_types", help="Filter by train types, comma-separated")
     parser.add_argument("--selling", choices=["true", "false"], help="Filter by ticket selling allowed")
     parser.add_argument("--list-types", action="store_true", help="List available train types in response and exit")
     args = parser.parse_args()
@@ -179,12 +175,17 @@ def main():
             print("  -", t)
         return
 
-    trains = parse_trains(resp.text, filter_type=args.train_type, filter_selling=args.selling)
+    filter_types = None
+    if args.train_types:
+        filter_types = set(t.strip() for t in args.train_types.split(","))
+
+    trains = parse_trains(resp.text, filter_types=filter_types, filter_selling=args.selling)
     if not trains:
         print("Нет поездов с указанным фильтром.")
         return
 
     print_trains_grouped(trains)
+
 
 if __name__ == "__main__":
     main()
