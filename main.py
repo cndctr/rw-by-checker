@@ -54,13 +54,27 @@ def parse_trains(html, filter_type=None, filter_selling=None):
             t_name = t.select_one(".sch-table__t-name").text.strip()
             t_name = t_name if t_name else "Неизвестный тип"
             qty = t.select_one("a span").text.strip()
-            cost = t.select_one(".ticket-cost").text.strip()
-            currency = t.select_one(".ticket-currency").text.strip()
+
+            # Collect all costs in this ticket type
+            costs = [c.text.strip() for c in t.select(".ticket-cost")]
+            currencies = [c.text.strip() for c in t.select(".ticket-currency")]
+
+            # Join multiple prices with "/"
+            if costs:
+                price_str = "/".join(costs)
+                if currencies:
+                    # take unique currencies and join
+                    uniq_cur = "/".join(sorted(set(currencies)))
+                    price_str = f"{price_str} {uniq_cur}"
+            else:
+                price_str = "—"
+
             tickets.append({
                 "type": t_name,
                 "seats": qty,
-                "price": f"{cost} {currency}"
+                "price": price_str
             })
+
 
         trains.append({
             "number": number,
