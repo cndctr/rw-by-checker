@@ -1,7 +1,15 @@
 [project]
 name = "rw-by-checker"
 version = "0.1.0"
-description = "Add your description here"
+description = "CLI app to check available train seats on rw.by"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.11"
+
+dependencies = [
+    "requests",
+    "beautifulsoup4",
+	"colorama"
+]
+
+[tool.uv]
+# uv will manage venv and lock
