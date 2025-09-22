@@ -1,0 +1,19 @@
+[X] Add cost ranges filtering - Cheap <10BYN, Normal 10-20BYN, Expensive >20BYN
+[ ] Add filtering presets - json-like or ini-like
+    {"presets":
+        "way_home": [
+            {
+                "train_types": "international,regional_business",
+                "from": "minsk",
+                "to": "orsha",
+                "selling": true
+            },
+            {
+                "train_types": "international,regional_business",
+                "from": "minsk",
+                "to": "orsha",
+                "selling": true  
+            }
+        ]
+    
+    }

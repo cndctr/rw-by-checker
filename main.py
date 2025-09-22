@@ -31,6 +31,13 @@ def build_url(from_city, to_city, date, codes):
         f"&date={date.strftime('%Y-%m-%d')}"
     )
 
+def parse_price_value(text: str) -> float | None:
+    try:
+        return float(text.replace(",", "."))
+    except ValueError:
+        return None
+
+
 def parse_trains(html, filter_types=None, filter_selling=None):
     soup = BeautifulSoup(html, "html.parser")
     trains = []
@@ -51,15 +58,17 @@ def parse_trains(html, filter_types=None, filter_selling=None):
 
         tickets = []
         for t in row.select(".sch-table__t-item.has-quant"):
-            t_name = t.select_one(".sch-table__t-name").text.strip()
-            t_name = t_name if t_name else "Неизвестный тип"
+            t_name = t.select_one(".sch-table__t-name").text.strip() or "Неизвестный тип"
             qty = t.select_one("a span").text.strip()
 
-            # Collect all costs
-            costs = [c.text.strip() for c in t.select(".ticket-cost")]
+            # collect all numeric prices
+            raw_costs = [c.text.strip() for c in t.select(".ticket-cost")]
+            price_values = [parse_price_value(c) for c in raw_costs if parse_price_value(c) is not None]
+            min_price = min(price_values) if price_values else None
+
             currencies = [c.text.strip() for c in t.select(".ticket-currency")]
-            if costs:
-                price_str = "/".join(costs)
+            if raw_costs:
+                price_str = "/".join(raw_costs)
                 if currencies:
                     uniq_cur = "/".join(sorted(set(currencies)))
                     price_str = f"{price_str} {uniq_cur}"
@@ -69,8 +78,10 @@ def parse_trains(html, filter_types=None, filter_selling=None):
             tickets.append({
                 "type": t_name,
                 "seats": qty,
-                "price": price_str
+                "price": price_str,
+                "min_price": min_price,
             })
+
 
         trains.append({
             "number": number,
@@ -83,6 +94,33 @@ def parse_trains(html, filter_types=None, filter_selling=None):
             "tickets": tickets
         })
     return trains
+
+def filter_by_price_range(trains, price_range):
+    if not price_range:
+        return trains
+
+    def in_range(price):
+        if price is None:
+            return False
+        if price_range == "cheap":
+            return price < 10
+        if price_range == "normal":
+            return 10 <= price <= 20
+        if price_range == "expensive":
+            return price > 20
+        return True
+
+    filtered = []
+    for t in trains:
+        keep = False
+        for ticket in t["tickets"]:
+            if in_range(ticket["min_price"]):
+                keep = True
+                break
+        if keep:
+            filtered.append(t)
+    return filtered
+
 
 def list_train_types(html):
     soup = BeautifulSoup(html, "html.parser")
@@ -159,6 +197,9 @@ def main():
     parser.add_argument("--types", dest="train_types", help="Filter by train types, comma-separated")
     parser.add_argument("--selling", choices=["true", "false"], help="Filter by ticket selling allowed")
     parser.add_argument("--list-types", action="store_true", help="List available train types in response and exit")
+    parser.add_argument("--price-range", choices=["cheap", "normal", "expensive"], help="Filter trains by price category"
+)
+
     args = parser.parse_args()
 
     codes = load_city_codes()
@@ -180,6 +221,8 @@ def main():
         filter_types = set(t.strip() for t in args.train_types.split(","))
 
     trains = parse_trains(resp.text, filter_types=filter_types, filter_selling=args.selling)
+    trains = filter_by_price_range(trains, args.price_range)
+
     if not trains:
         print("Нет поездов с указанным фильтром.")
         return
