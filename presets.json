@@ -1,0 +1,16 @@
+{
+  "way_home_normal": {
+    "from-city": "minsk",
+    "to-city": "orsha",
+    "selling": "true",
+    "train-types": ["international", "regional_business"],
+    "price-range": "normal"
+  },
+  "way_back_normal": {
+    "from": "orsha",
+    "to": "minsk",
+    "selling": "true",
+    "types": ["international", "regional_business"],
+    "price-range": "normal"
+  }
+}

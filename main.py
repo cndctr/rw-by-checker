@@ -4,6 +4,17 @@ from bs4 import BeautifulSoup
 import csv
 from datetime import datetime
 from colorama import Fore, Style, init
+import json
+# import os
+
+def load_preset(preset_name, filename="presets.json"):
+    # if not os.path.exists(filename):
+    #     print(f"Preset file {filename} not found.")
+    #     return None
+    with open(filename, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get(preset_name)
+
 
 init(autoreset=True)
 
@@ -191,16 +202,36 @@ def print_trains_grouped(trains):
 
 def main():
     parser = argparse.ArgumentParser(description="RW.BY train seat checker")
-    parser.add_argument("--from", dest="from_city", required=True, help="From city alias (see cities.csv)")
-    parser.add_argument("--to", dest="to_city", required=True, help="To city alias (see cities.csv)")
-    parser.add_argument("--date", required=True, help="Travel date in YYYY-MM-DD")
-    parser.add_argument("--types", dest="train_types", help="Filter by train types, comma-separated")
+    parser.add_argument("--from-city", dest="from_city", help="From city alias (see cities.csv)")
+    parser.add_argument("--to-city", dest="to_city", help="To city alias (see cities.csv)")
+    parser.add_argument("--date", help="Travel date in YYYY-MM-DD")
+    parser.add_argument("--train-types", dest="train_types", help="Filter by train types, comma-separated")
     parser.add_argument("--selling", choices=["true", "false"], help="Filter by ticket selling allowed")
+    parser.add_argument("--price-range", choices=["cheap", "normal", "expensive"], help="Filter by price category")
     parser.add_argument("--list-types", action="store_true", help="List available train types in response and exit")
-    parser.add_argument("--price-range", choices=["cheap", "normal", "expensive"], help="Filter trains by price category"
-)
+    parser.add_argument("--preset", help="Name of preset from presets.json")
+    # parser.add_argument("--list-presets", action="store_true", help="List all available presets from presets.json and exit")
 
     args = parser.parse_args()
+
+    # Apply preset AFTER parsing args
+    preset_data = None
+    if args.preset:
+        preset_data = load_preset(args.preset)
+        if not preset_data:
+            print(f"Preset '{args.preset}' not found.")
+            return
+        # Merge preset values into args if missing
+        for key, value in preset_data.items():
+            arg_key = key.replace("-", "_")
+            if getattr(args, arg_key) is None:
+                setattr(args, arg_key, value)
+    
+
+    # Validation
+    if not args.from_city or not args.to_city or not args.date:
+        print("Error: --from, --to and --date are required (either directly or via preset).")
+        return
 
     codes = load_city_codes()
     date = datetime.strptime(args.date, "%Y-%m-%d")
@@ -218,13 +249,16 @@ def main():
 
     filter_types = None
     if args.train_types:
-        filter_types = set(t.strip() for t in args.train_types.split(","))
+        if isinstance(args.train_types, list):  # from preset JSON
+            filter_types = set(args.train_types)
+        else:
+            filter_types = set(t.strip() for t in args.train_types.split(","))
 
     trains = parse_trains(resp.text, filter_types=filter_types, filter_selling=args.selling)
     trains = filter_by_price_range(trains, args.price_range)
 
     if not trains:
-        print("Нет поездов с указанным фильтром.")
+        print("No trains available with this criteria")
         return
 
     print_trains_grouped(trains)
