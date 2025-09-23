@@ -7,10 +7,10 @@
     "price-range": "normal"
   },
   "way_back_normal": {
-    "from": "orsha",
-    "to": "minsk",
+    "from-city": "orsha",
+    "to-city": "minsk",
     "selling": "true",
-    "types": ["international", "regional_business"],
+    "train-types": ["international", "regional_business"],
     "price-range": "normal"
   }
 }
